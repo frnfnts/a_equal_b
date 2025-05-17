@@ -1,14 +1,10 @@
-(defparameter *text* "ABCDA")
-(defparameter *commands* nil)
-
-; input.txt から読み取る -> *commands*
-(defun read-commands ()
-  (let ((commands nil))
+(defun read-lines ()
+  (let ((lines nil))
     (with-open-file (input-stream "input.txt" :direction :input :element-type 'character)
       (loop for line = (read-line input-stream nil nil)
             while line
-            do (push line commands)))
-      (reverse commands)))
+            do (push line lines)))
+      (reverse lines)))
 
 ; # から始まるコマンドを削除
 (defun remove-comment (commands)
@@ -27,6 +23,8 @@
 
 (defun parse-command (command)
   (split #\= command))
+(defun parse-commands (lines)
+  (mapcar #'parse-command (remove-comment lines)))
 
 ; コマンドを実行
 (defun execute-command (command text)
@@ -47,9 +45,3 @@
       (execute-commands commands (execute-command (car appliable-commands) text))
   )
 ))
-
-; main
-(setf *commands*
-  (mapcar #'parse-command (remove-comment (read-commands))))
-(print *commands*)
-(print (execute-commands *commands* *text*))
