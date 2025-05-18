@@ -38,8 +38,10 @@
         (write-string tgt stream)
         (when (> (length text) (+ idx (length src)))
           (write-string (subseq text (+ idx (length src))) stream))))))
+(defun appliable-p (command text)
+  (search (car command) text))
 (defun execute-commands (commands text)
-  (let* ((appliable-commands (remove-if-not #'(lambda (cmd) (search(car cmd) text)) commands)))
+  (let* ((appliable-commands (remove-if-not #'(lambda (cmd) (appliable-p cmd text)) commands)))
     (if (null appliable-commands)
       text
       (execute-commands commands (execute-command (car appliable-commands) text))

@@ -77,3 +77,5 @@
   (let ((filtered-commands (remove-comment (list "hello=world" "#skip=this"))))
     (execute-commands (parse-commands filtered-commands) "hello test"))
   "world test")
+
+(print "All tests passed.")
