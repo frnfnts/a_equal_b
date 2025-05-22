@@ -1,81 +1,129 @@
 (load "ab.lisp")
 (defun test (name actual expected)
-  (unless (equal actual expected)
-    (format t "test failed: ~a: ~a ~a~%" name actual expected)))
+  (format t "~%Testing: ~a~%" name)
+  (if (equal actual expected)
+      (format t "  ✓ PASS~%")
+      (format t "  ✗ FAIL: Expected ~S but got ~S~%" expected actual)))
 
-(test "remove-comment"
-  (remove-comment '("A=B" "#B=C" "#C=D" "D=E" "#E=F" "#F=G" "#G=A"))
-  '("A=B" "D=E"))
+(defun run-tests ()
+  (format t "~%=== Running Tests ===~%")
 
-;; Test for split function
-(test "split"
-  (split #\= "A=B")
-  '("A" "B"))
+  ;; Test for remove-comment
+  (test "remove-comment - standard case"
+    (remove-comment '("A=B" "#B=C" "#C=D" "D=E" "#E=F" "#F=G" "#G=A"))
+    '("A=B" "D=E"))
 
-(test "split-multiple"
-  (split #\= "hello=world=test")
-  '("hello" "world" "test"))
+  (test "remove-comment - empty list"
+    (remove-comment '())
+    '())
 
-;; Test for parse-command function
-(test "parse-command"
-  (parse-command "hello=world")
-  '("hello" "world"))
+  (test "remove-comment - only comments"
+    (remove-comment '("#A=B" "#C=D"))
+    '())
 
-(test "parse-command-empty"
-  (parse-command "hello=")
-  '("hello" ""))
+  ;; Test for split function
+  (test "split - simple string"
+    (split #\= "A=B")
+    '("A" "B"))
 
-;; Test for execute-command function
-(test "execute-command"
-  (execute-command '("hello" "hi") "hello world")
-  "hi world")
+  (test "split - multiple delimiters"
+    (split #\= "hello=world=test")
+    '("hello" "world" "test"))
 
-(test "execute-command-multiple"
-  (execute-command '("l" "L") "hello world")
-  "heLlo world")
+  (test "split - empty right side"
+    (split #\= "A=")
+    '("A" ""))
 
-(test "execute-command-not-found"
-  (execute-command '("xyz" "abc") "hello world")
-  "hello world")
+  (test "split - empty left side"
+    (split #\= "=B")
+    '("" "B"))
 
-;; Test for execute-commands function
-(test "execute-commands"
-  (execute-commands '(("hello" "hi") ("world" "earth")) "hello world")
-  "hi earth")
+  ;; Test for take-decorator function
+  (test "take-decorator - no parentheses"
+    (take-decorator "hello")
+    '(nil . "hello"))
 
-(test "execute-commands-recursive"
-  (execute-commands '(("hello" "hi") ("hi" "hey")) "hello world")
-  "hey world")
+  (test "take-decorator - with parentheses"
+    (take-decorator "(abc)hello")
+    '("abc" . "hello"))
 
-(test "execute-commands-no-match"
-  (execute-commands '(("xyz" "abc") ("123" "456")) "hello world")
-  "hello world")
+  ;; Test for parse-command function
+  (test "parse-command - basic command"
+    (let ((cmd (parse-command "hello=world")))
+      (list (command-src cmd) (command-tgt cmd)
+            (command-src-decorator cmd) (command-tgt-decorator cmd)))
+    '("hello" "world" nil nil))
 
-;; Test for parse-commands function
-(test "parse-commands-basic"
-  (parse-commands '("A=B" "C=D"))
-  '(("A" "B") ("C" "D")))
+  (test "parse-command - empty target"
+    (let ((cmd (parse-command "hello=")))
+      (list (command-src cmd) (command-tgt cmd)
+            (command-src-decorator cmd) (command-tgt-decorator cmd)))
+    '("hello" "" nil nil))
 
-(test "parse-commands-with-comments"
-  (parse-commands '("A=B" "#X=Y" "C=D"))
-  '(("A" "B") ("C" "D")))
+  (test "parse-command - with accessories"
+    (let ((cmd (parse-command "(replace)hello=(with)world")))
+      (list (command-src cmd) (command-tgt cmd)
+            (command-src-decorator cmd) (command-tgt-decorator cmd)))
+    '("hello" "world" "replace" "with"))
 
-(test "parse-commands-empty"
-  (parse-commands '())
-  '())
+  ;; Test for parse-commands function
+  (test "parse-commands - basic list"
+    (let ((cmds (parse-commands '("A=B" "C=D"))))
+      (list (command-src (first cmds)) (command-tgt (first cmds))
+            (command-src (second cmds)) (command-tgt (second cmds))))
+    '("A" "B" "C" "D"))
 
-(test "parse-commands-only-comments"
-  (parse-commands '("#A=B" "#C=D"))
-  '())
+  (test "parse-commands - with comments"
+    (let ((cmds (parse-commands '("A=B" "#X=Y" "C=D"))))
+      (list (command-src (first cmds)) (command-tgt (first cmds))
+            (command-src (second cmds)) (command-tgt (second cmds))))
+    '("A" "B" "C" "D"))
 
-(test "parse-commands-with-empty-values"
-  (parse-commands '("A=" "B=C"))
-  '(("A" "") ("B" "C")))
+  ;; Test for execute-command function
+  (test "execute-command - simple replacement"
+    (execute-command (parse-command '"hello=hi") "hello world")
+    "hi world")
 
-;; Complete test workflow
-(test "full-workflow"
-  (let ((filtered-commands (remove-comment (list "hello=world" "#skip=this"))))
-    (execute-commands (parse-commands filtered-commands) "hello test"))
-  "world test")
+  (test "execute-command - multiple occurrences"
+    (execute-command (parse-command '"l=L") "hello world")
+    "heLlo world")
 
-(print "All tests passed.")
+  (test "execute-command - pattern not found"
+    (execute-command (parse-command '"xyz=abc") "hello world")
+    "hello world")
+
+  ;; Test for execute-commands function
+  (test "execute-commands - multiple replacements"
+    (execute-commands (parse-commands '("hello=hi" "world=earth")) "hello world")
+    "hi earth")
+
+  (test "execute-commands - recursive replacement"
+    (execute-commands (parse-commands '("hello=hi" "hi=hey")) "hello world")
+    "hey world")
+
+  (test "execute-commands - no matches"
+    (execute-commands (parse-commands '("foo=bar" "baz=qux")) "hello world")
+    "hello world")
+
+  ;; Complete workflow tests
+  (test "full-workflow - simple case"
+    (let* ((lines '("hello=world" "#skip=this"))
+           (filtered (remove-comment lines))
+           (cmds (parse-commands filtered)))
+      (execute-commands cmds "hello test"))
+    "world test")
+
+  (test "full-workflow - with accessories"
+    (let* ((lines '("(abc)hello=world" "#skip=this" "(xyz)test=example"))
+           (filtered (remove-comment lines))
+           (cmds (mapcar #'parse-command filtered)))
+      (list (command-src-decorator (first cmds))
+            (command-tgt (first cmds))
+            (command-src-decorator (second cmds))
+            (command-tgt (second cmds))))
+    '("abc" "world" "xyz" "example"))
+
+  (format t "~%=== Tests Completed ===~%"))
+
+;; Run all tests
+(run-tests)
